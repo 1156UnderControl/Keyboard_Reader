@@ -1,29 +1,40 @@
-from networktables import pynetworktables as ntcore
+import networktables as networkTablesCore
 import keyboard
 import time
+from threading import Timer
 
 def main():
+    def release_key(key_name: str) -> None:
+        print(f"Sending: {key_name} -> {False}")
+        table.putBoolean(key_name, False)
+
+    def timed_keypress(key_name: str, press_time: float) -> None:
+        print(f"Sending: {key_name} -> {True}")
+        table.putBoolean(key_name, True)
+        timer = Timer(press_time, release_key, [key_name])
+        timer.start()
+
     def on_action(event: keyboard.KeyboardEvent):
         if (event.name == "/"):
             return
         value = event.event_type == keyboard.KEY_DOWN
-        key_name = "numpad" + event.name if event.is_keypad else event.name.lower()
-        print(f"Sending: {key_name} -> {value}")
-        table.putBoolean(key_name, value)
+        if value:
+            key_name = "numpad" + event.name if event.is_keypad else event.name.lower()
+            timed_keypress(key_name, 0.100)
 
-    ntcoreinst = ntcore.NetworkTableInstance.getDefault()
+    networkTables = networkTablesCore.NetworkTablesInstance.getDefault()
 
     print("Setting up NetworkTables client")
-    ntcoreinst.startClient4("KeyboardToNT")
-    ntcoreinst.setServer("10.11.56.2")
-    ntcoreinst.startDSClient()
+    networkTables.startClient("KeyboardToNT")
+    networkTables.setServer("10.11.56.2")
+    networkTables.startDSClient()
 
     print("Waiting for connection to NetworkTables server...")
-    while not ntcoreinst.isConnected():
+    while not networkTables.isConnected():
         time.sleep(0.1)
 
     print("Connected!")
-    table = ntcoreinst.getTable("SmartDashboard/keyboard")
+    table = networkTables.getTable("OperatorController")
 
     keyboard.hook(lambda e: on_action(e))
     keyboard.wait()
