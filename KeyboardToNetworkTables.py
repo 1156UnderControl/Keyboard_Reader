@@ -1,6 +1,6 @@
 import networktables as networkTablesCore
+import keyboard
 import time
-import evdev
 from threading import Timer
 
 def main():
@@ -14,20 +14,13 @@ def main():
         timer = Timer(press_time, release_key, [key_name])
         timer.start()
 
-    # Get all input devices
-    devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
-    keyboard_device = None
-
-    # Identify the correct keyboard
-    for device in devices:
-        if "keyboard" in device.name.lower():  # Change this if needed
-            keyboard_device = device
-            print(f"Using keyboard: {device.name} at {device.path}")
-            break
-
-    if not keyboard_device:
-        print("No USB keyboard found!")
-        return
+    def on_action(event: keyboard.KeyboardEvent):
+        if (event.name == "/"):
+            return
+        value = event.event_type == keyboard.KEY_DOWN
+        if value:
+            key_name = "numpad" + event.name if event.is_keypad else event.name.lower()
+            timed_keypress(key_name, 0.100)
 
     networkTables = networkTablesCore.NetworkTablesInstance.getDefault()
 
@@ -43,14 +36,8 @@ def main():
     print("Connected!")
     table = networkTables.getTable("OperatorController")
 
-    # Read from the USB keyboard only
-    for event in keyboard_device.read_loop():
-        if event.type == evdev.ecodes.EV_KEY:
-            key_event = evdev.categorize(event)
-            key_name = key_event.keycode.lower()
-
-            if key_event.keystate == evdev.KeyEvent.key_down:
-                timed_keypress(key_name, 0.100)
+    keyboard.hook(lambda e: on_action(e))
+    keyboard.wait()
 
 if __name__ == '__main__':
     main()
